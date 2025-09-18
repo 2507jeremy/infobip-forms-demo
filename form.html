@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback Form</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* Custom styles for the rating buttons */
+        .rating-btn {
+            transition: all 0.2s ease-in-out;
+            border: 2px solid #E5E7EB; /* gray-200 */
+        }
+        .rating-btn.selected {
+            border-color: #3B82F6; /* blue-500 */
+            background-color: #EFF6FF; /* blue-50 */
+            color: #2563EB; /* blue-600 */
+            font-weight: 600;
+        }
+        .rating-btn:not(.selected):hover {
+             border-color: #9CA3AF; /* gray-400 */
+        }
+        /* Hide number input spinners */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-2xl mx-auto p-4 sm:p-8 text-center">
+        <header class="mb-12">
+            <img src="logo.png" alt="Company Logo" class="mx-auto h-8 w-auto" onerror="this.onerror=null;this.src='https://placehold.co/200x50/ffffff/333333?text=loveholidays&font=raleway';">
+        </header>
+
+        <main id="form-container">
+            <form id="feedbackForm">
+                <div class="question-step active" data-step="0">
+                    <h2 id="follow-up-question" class="text-2xl text-gray-800 mb-8">Tell us a bit more about why you chose that score.</h2>
+                    <textarea id="reason" name="reason" rows="4" class="w-full max-w-lg mx-auto p-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"></textarea>
+                </div>
+
+                <div class="question-step hidden" data-step="1">
+                    <h2 class="text-2xl text-gray-800 mb-4">How easy was it to get the help you needed today?</h2>
+                    <div class="flex justify-center items-center space-x-2 md:space-x-4 my-8">
+                        <button type="button" class="rating-btn w-12 h-12 rounded-lg text-gray-600" data-value="1">1</button>
+                        <button type="button" class="rating-btn w-12 h-12 rounded-lg text-gray-600" data-value="2">2</button>
+                        <button type="button" class="rating-btn w-12 h-12 rounded-lg text-gray-600" data-value="3">3</button>
+                        <button type="button" class="rating-btn w-12 h-12 rounded-lg text-gray-600" data-value="4">4</button>
+                        <button type="button" class="rating-btn w-12 h-12 rounded-lg text-gray-600" data-value="5">5</button>
+                    </div>
+                    <div class="flex justify-between text-sm text-gray-500 px-2">
+                        <span>Very Difficult</span>
+                        <span>Very Easy</span>
+                    </div>
+                </div>
+
+                <div class="question-step hidden" data-step="2">
+                    <h2 class="text-2xl text-gray-800 mb-8">If you've got a moment, we'd love to understand<br>whether there's anything we could do to improve our customer service.</h2>
+                    <textarea id="improvement" name="improvement" rows="4" class="w-full max-w-lg mx-auto p-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"></textarea>
+                </div>
+
+                <div id="navigation-container" class="mt-12">
+                     <button type="button" id="next-btn" class="bg-blue-500 text-white font-semibold px-8 py-3 rounded-lg hover:bg-blue-600 transition disabled:bg-gray-300 disabled:cursor-not-allowed">Next question</button>
+                     <button type="submit" id="done-btn" class="bg-blue-500 text-white font-semibold px-12 py-3 rounded-lg hover:bg-blue-600 transition hidden">Done</button>
+                     <div class="mt-4">
+                        <button type="button" id="prev-btn" class="text-sm text-gray-500 hover:text-gray-700 hidden">Previous question</button>
+                     </div>
+                </div>
+            </form>
+        </main>
+        
+        <div id="thank-you-message" class="hidden">
+            <h2 class="text-3xl text-gray-800">Thanks, we really appreciate your feedback.</h2>
+        </div>
+
+
+        <footer class="mt-20 text-sm text-gray-400">
+            Powered by Your Company
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function () {
+            // --- CONFIGURATION ---
+            // This is the base URL for submission. The formId will be appended to it.
+            const BASE_SUBMIT_URL = 'https://ejxr3q.api.infobip.com';
+
+            // --- STATE MANAGEMENT ---
+            let currentStep = 0;
+            let formId = null;
+            const formData = {
+                rating: null,
+                reason: '',
+                improvement: '',
+                email: null
+            };
+
+            // --- DOM ELEMENTS ---
+            const steps = document.querySelectorAll('.question-step');
+            const nextBtn = document.getElementById('next-btn');
+            const prevBtn = document.getElementById('prev-btn');
+            const doneBtn = document.getElementById('done-btn');
+            const form = document.getElementById('feedbackForm');
+            const ratingButtons = document.querySelectorAll('.rating-btn');
+            const followUpQuestion = document.getElementById('follow-up-question');
+            
+            // --- INITIALIZATION ---
+            initializeFromUrl();
+            await sendInitialPostRequest(); // Send POST request on load
+            updateNavigation();
+
+            // --- EVENT LISTENERS ---
+            nextBtn.addEventListener('click', () => navigateTo(currentStep + 1));
+            prevBtn.addEventListener('click', () => navigateTo(currentStep - 1));
+            
+            ratingButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    formData.rating = button.dataset.value;
+                    
+                    // Update styles
+                    ratingButtons.forEach(btn => btn.classList.remove('selected'));
+                    button.classList.add('selected');
+
+                    updateNavigation();
+                });
+            });
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                collectAllData();
+                doneBtn.disabled = true;
+                doneBtn.textContent = 'Submitting...';
+
+                // Append formId to the base URL if it exists
+                const finalSubmitUrl = formId ? `${BASE_SUBMIT_URL}/forms/1/forms/${formId}/data` : BASE_SUBMIT_URL;
+
+                try {
+                    const response = await fetch(finalSubmitUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'App 0d1edb021936a1d9934f02ff4a07dc01-91daf52c-93c0-4e0d-8f67-d85a27fc8d66',
+                            'ib-submission-source': 'website',
+                            'ib-submission-form-campaign': 'survey_2025'
+                        },
+                        body: JSON.stringify(formData),
+                    });
+
+                    if (response.ok) {
+                        console.log('Submission successful:', await response.json());
+                        showThankYouMessage();
+                    } else {
+                        throw new Error(`Server responded with status: ${response.status}`);
+                    }
+                } catch (error) {
+                    console.error('Submission failed:', error);
+                    // Optionally, show an error message to the user
+                    alert('Sorry, there was an issue submitting your feedback. Please try again.');
+                    doneBtn.disabled = false;
+                    doneBtn.textContent = 'Done';
+                }
+            });
+
+            // --- FUNCTIONS ---
+            async function sendInitialPostRequest() {
+                if (!formId) {
+                    console.log("No formId found in URL, skipping initial page load POST request.");
+                    return;
+                }
+
+                const initialPostUrl = `${BASE_SUBMIT_URL}/forms/1/forms/${formId}/views`;
+
+                try {
+                    const response = await fetch(initialPostUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'App 0d1edb021936a1d9934f02ff4a07dc01-91daf52c-93c0-4e0d-8f67-d85a27fc8d66'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Server responded with status: ${response.status}`);
+                    }
+                    console.log('Initial POST request successful.');
+                } catch (error) {
+                    // This request failing shouldn't stop the user from filling out the form.
+                    console.error('Initial page load POST request failed:', error);
+                }
+            }
+
+            function initializeFromUrl() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const ratingFromUrl = urlParams.get('rating');
+                const emailFromUrl = urlParams.get('email');
+                const formIdFromUrl = urlParams.get('formId');
+
+                if (ratingFromUrl && !isNaN(ratingFromUrl) && ratingFromUrl >= 1 && ratingFromUrl <= 5) {
+                    formData.rating = ratingFromUrl;
+                    followUpQuestion.textContent = `Tell us a bit more about why you chose ${ratingFromUrl}.`;
+                    
+                    // Pre-select the corresponding rating button for the next step
+                    const correspondingRatingBtn = document.querySelector(`.rating-btn[data-value="${ratingFromUrl}"]`);
+                    if (correspondingRatingBtn) {
+                        correspondingRatingBtn.classList.add('selected');
+                    }
+                }
+
+                if (emailFromUrl) {
+                    formData.email = emailFromUrl;
+                }
+
+                if (formIdFromUrl) {
+                    formId = formIdFromUrl;
+                }
+            }
+
+            function navigateTo(stepIndex) {
+                collectAllData();
+                currentStep = stepIndex;
+                
+                steps.forEach((step, index) => {
+                    if (index === currentStep) {
+                        step.classList.remove('hidden');
+                        step.classList.add('active');
+                    } else {
+                        step.classList.add('hidden');
+                        step.classList.remove('active');
+                    }
+                });
+                
+                updateNavigation();
+            }
+
+            function updateNavigation() {
+                // Previous button visibility
+                prevBtn.classList.toggle('hidden', currentStep === 0);
+
+                // Next/Done button visibility
+                const isLastStep = currentStep === steps.length - 1;
+                nextBtn.classList.toggle('hidden', isLastStep);
+                doneBtn.classList.toggle('hidden', !isLastStep);
+                
+                // The next button is always enabled on text steps
+                nextBtn.disabled = false;
+            }
+            
+            function collectAllData() {
+                // Data is collected via event listeners, but this ensures the latest textarea values are saved on navigation
+                const reasonInput = document.getElementById('reason');
+                if (reasonInput) formData.reason = reasonInput.value.trim();
+
+                const improvementInput = document.getElementById('improvement');
+                if (improvementInput) formData.improvement = improvementInput.value.trim();
+            }
+
+            function showThankYouMessage() {
+                document.getElementById('form-container').classList.add('hidden');
+                document.getElementById('thank-you-message').classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
